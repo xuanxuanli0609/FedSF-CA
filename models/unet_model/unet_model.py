@@ -1,4 +1,6 @@
 import pdb
+
+import cv2
 # from cv2 import moments
 import torch
 import numpy as np
@@ -44,7 +46,8 @@ class UnetModel(BaseModel):
         opt.net = 'unet'
         self.net = networks.define_net(input_nc=opt.input_nc, output_nc=opt.output_nc, net=opt.net, \
                                        init_type=opt.init_type, init_gain=opt.init_gain, gpu_ids=self.gpu_ids,
-                                       san_lsit=opt.san_list, SAN_SAW=opt.use_san_saw,base_ch=opt.bace_ch)
+                                       san_lsit=opt.san_list, SAN_SAW=opt.use_san_saw,base_ch=opt.bace_ch,mixstyle_layers=opt.mixstyle_layers
+                                       )
 
         if len(opt.load_pretrain)>0:
             state_dict = torch.load(opt.load_pretrain, map_location='cuda:0')
@@ -134,7 +137,7 @@ class UnetModel(BaseModel):
 
     def forward(self):
         if self.opt.use_san_saw:
-            self.out,_,_,_ = self.net(self.image)
+            self.out,_,_,_,_ = self.net(self.image)
         else:
             self.out = self.net(self.image)
         if np.isnan(np.sum(self.out.detach().cpu().numpy())):
@@ -198,7 +201,7 @@ class UnetModel(BaseModel):
         if self.opt.federated_algorithm != 'feddyn':
             self.optimizers[0].step()
 
-    def get_Inconsistent_Labels_loss(self,out_fake):
+    def get_Inconsistent_Labels_loss(self,out_fake,out_d=None,out_fake_d=None):
         class_flag = [1]
         node_enabled_encoders = []
         for c in range(self.out.shape[1]-1):
@@ -207,9 +210,20 @@ class UnetModel(BaseModel):
                 node_enabled_encoders.append(c)
             else:
                 class_flag.append(0)
+
         l1,l2 = self.criterion[0](self.out, self.label[:,None,...], class_flag)
         l3,l4 = self.criterion[1](self.out, self.label[:,None,...], class_flag)
         loss_seg = 0.5*(l1+l2+l3+l4)
+        if out_d!=None and out_fake_d!=None:
+            for i in range(len(out_d)):
+                im_shape = out_d[i].shape[2:]
+                s = F.adaptive_max_pool2d(self.label.float(), im_shape).long()
+                l1, l2 = self.criterion[0](out_d[i], s[:, None, ...], class_flag)
+                l3, l4 = self.criterion[1](out_d[i], s[:, None, ...], class_flag)
+                loss_seg += 0.1*(l1+l2+l3+l4)
+                l1, l2 = self.criterion[0](out_fake_d[i], s[:, None, ...], class_flag)
+                l3, l4 = self.criterion[1](out_fake_d[i], s[:, None, ...], class_flag)
+                loss_seg += 0.1 * (l1 + l2 + l3 + l4)
         l1, l2 = self.criterion[0](out_fake, self.label[:, None, ...], class_flag)
         l3, l4 = self.criterion[1](out_fake, self.label[:, None, ...], class_flag)
         loss_seg = loss_seg+0.5*(l1 + l2 + l3 + l4)
@@ -228,7 +242,9 @@ class UnetModel(BaseModel):
         class_flag = self.set_flag()
         label_one = self.merge_label(self.label, class_flag).cuda()
         loss_in_lays = []
-        variables = [self.net.global_decoder.SAN_stage_1.IN, self.net.global_decoder.SAN_stage_2.IN]
+        variables = [self.net.global_decoder.SAN_stage_1.IN]
+        if 1 in self.opt.san_list:
+            variables.append(self.net.global_decoder.SAN_stage_2.IN)
         if 2 in self.opt.san_list:
             variables.append(self.net.global_decoder.SAN_stage_3.IN)
         if 3 in self.opt.san_list:
@@ -256,9 +272,9 @@ class UnetModel(BaseModel):
         # loss_seg = self.criterion(self.out, self.label) + dice_loss(self.out, self.label) * 10
         if self.loss_type == 'Inconsistent_Labels_loss' and self.opt.use_san_saw:
             # output, [san1, san2, san3, san4], [saw_loss_lay1, saw_loss_lay2, saw_loss_lay3, saw_loss_lay4]
-            self.out, oris, sans, saw_losses = self.net(self.image.to(self.gpu_ids[0]))
-            out_fake, fake_oris, fake_sans, fake_saw_losses = self.net(self.fake_image.to(self.gpu_ids[0]))
-            loss_seg = self.get_Inconsistent_Labels_loss(out_fake)
+            self.out, oris, sans, saw_losses, out_d = self.net(self.image.to(self.gpu_ids[0]))
+            out_fake, fake_oris, fake_sans, fake_saw_losses, out_fake_d = self.net(self.fake_image.to(self.gpu_ids[0]))
+            loss_seg = self.get_Inconsistent_Labels_loss(out_fake,out_d,out_fake_d)
             if round_idx>30:
                 loss_seg = loss_seg + self.get_san_saw_loss(oris,sans,saw_losses)
                 loss_seg = loss_seg + self.get_san_saw_loss(fake_oris,fake_sans,fake_saw_losses)
@@ -267,10 +283,21 @@ class UnetModel(BaseModel):
             out_fake = self.net(self.fake_image.to(self.gpu_ids[0]))
             loss_seg = self.get_Inconsistent_Labels_loss(out_fake)
         elif self.opt.use_san_saw:
-            self.out, oris, sans, saw_losses = self.net(self.image.to(self.gpu_ids[0]))
-            out_fake, fake_oris, fake_sans, fake_saw_losses = self.net(self.fake_image.to(self.gpu_ids[0]))
+            self.out, oris, sans, saw_losses, out_d = self.net(self.image.to(self.gpu_ids[0]))
+            out_fake, fake_oris, fake_sans, fake_saw_losses, out_fake_d = self.net(self.fake_image.to(self.gpu_ids[0]))
             loss_seg = 0.5 * (self.criterion(self.out, self.label) + self.criterion(out_fake, self.label)) \
                        + 0.5 * (dice_loss(self.out, self.label) * 10 + dice_loss(out_fake, self.label) * 10)
+
+            if out_d != None and out_fake_d != None:
+                for i in range(len(out_d)):
+                    im_shape = out_d[i].shape[2:]
+                    s = F.adaptive_max_pool2d(self.label.float(), im_shape).long()
+                    loss_seg = loss_seg + 0.1*( 0.5 * (self.criterion(out_d[i], s) + self.criterion(out_d[i], s))
+                                + 0.5 * (dice_loss(out_d[i], s) * 10 + dice_loss(out_d[i], s) * 10))
+                    # loss_seg += 0.1 * (l1 + l2 + l3 + l4)
+                    loss_seg = loss_seg + 0.1*( 0.5 * (self.criterion(out_fake_d[i], s) + self.criterion(out_fake_d[i], s))
+                                + 0.5 * (dice_loss(out_fake_d[i], s) * 10 + dice_loss(out_fake_d[i], s) * 10))
+                    # loss_seg += 0.1 * (l1 + l2 + l3 + l4)
             if round_idx>30:
                 loss_seg = loss_seg + self.get_san_saw_loss(oris,sans,saw_losses)
                 loss_seg = loss_seg + self.get_san_saw_loss(fake_oris, fake_sans, fake_saw_losses)

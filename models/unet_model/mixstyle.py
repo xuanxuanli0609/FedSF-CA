@@ -82,7 +82,7 @@ class MixStyle(nn.Module):
     def update_mix_method(self, mix='random'):
         self.mix = mix
 
-    def forward(self, x, nodes_style):
+    def forward(self, x):
         if not self.training or not self._activated:
             return x
 
@@ -91,41 +91,32 @@ class MixStyle(nn.Module):
 
         B = x.size(0)
 
-        mu = x.mean(dim=[2, 3, 4], keepdim=True)
-        var = x.var(dim=[2, 3, 4], keepdim=True)
+        mu = x.mean(dim=[2, 3], keepdim=True)
+        var = x.var(dim=[2, 3], keepdim=True)
         sig = (var + self.eps).sqrt()
         mu, sig = mu.detach(), sig.detach()
         x_normed = (x-mu) / sig
 
-        lmda = self.beta.sample((B, 1, 1, 1, 1))
+        lmda = self.beta.sample((B, 1, 1, 1))
         lmda = lmda.to(x.device)
 
-        # if self.mix == 'random':
-        #     # random shuffle
-        #     # perm = torch.randperm(B)
-        #     # 使用列表推导式生成 B 个0到4的随机整数
-        #     random_numbers = [random.randint(0, 4) for _ in range(B)]
-        # elif self.mix == 'crossdomain':
-        #     # split into two halves and swap the order
-        #     perm = torch.arange(B - 1, -1, -1) # inverse index
-        #     perm_b, perm_a = perm.chunk(2)
-        #     perm_b = perm_b[torch.randperm(B // 2)]
-        #     perm_a = perm_a[torch.randperm(B // 2)]
-        #     perm = torch.cat([perm_b, perm_a], 0)
-        # else:
-        #     raise NotImplementedError
+        if self.mix == 'random':
+            # random shuffle
+            perm = torch.randperm(B)
 
-        #随机挑选其他风格的信息
-        # 生成一个0到4的随机整数
+        elif self.mix == 'crossdomain':
+            # split into two halves and swap the order
+            perm = torch.arange(B - 1, -1, -1) # inverse index
+            perm_b, perm_a = perm.chunk(2)
+            perm_b = perm_b[torch.randperm(B // 2)]
+            perm_a = perm_a[torch.randperm(B // 2)]
+            perm = torch.cat([perm_b, perm_a], 0)
 
-        random_numbers = [random.randint(0, 4) for _ in range(B)]
-        distirbute = nodes_style[random_numbers]#[b,20,1,2]
-        mu2 = distirbute[:,:,0,0] #[b,20]
-        sig2 = (distirbute[:,:,0,1] + self.eps).sqrt() #[b,20]
-        mu2 = mu2.cuda()
-        sig2 = sig2.cuda()
-        mu2 = mu2.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        sig2 = sig2.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        else:
+            raise NotImplementedError
+
+        mu2, sig2 = mu[perm], sig[perm]
         mu_mix = mu*lmda + mu2 * (1-lmda)
         sig_mix = sig*lmda + sig2 * (1-lmda)
+
         return x_normed*sig_mix + mu_mix

@@ -4,7 +4,7 @@ import functools
 from torch.optim import lr_scheduler
 from ..losses.losses import *
 from ..losses.lnconsistent_labels_loss import *
-# from mixstyle import MixStyle, activate_mixstyle, deactivate_mixstyle
+from models.unet_model.mixstyle import MixStyle, activate_mixstyle, deactivate_mixstyle
 from models.unet_model.SAW import SAW
 from models.unet_model.SAN import SAN
 
@@ -104,13 +104,13 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], main_device=0)
 
 
 def define_net(input_nc, output_nc, net='unet', init_type='xavier_uniform', init_gain=1.0, gpu_ids=[],
-               main_device=0, SAN_SAW=False, san_lsit=[0,1],base_ch=32):
+               main_device=0, SAN_SAW=False, san_lsit=[0,1],base_ch=32,mixstyle_layers=[]):
     if net != 'unet':
         init_type = None
     if net == 'unet' and SAN_SAW == True:
-        net = Unet(input_nc=input_nc, output_nc=output_nc, base_ch=base_ch, san_lsit=san_lsit, selected_classes=list(range(1,output_nc+1)))
+        net = Unet(input_nc=input_nc, output_nc=output_nc, base_ch=base_ch, san_lsit=san_lsit, selected_classes=list(range(1,output_nc+1)),mixstyle_layers=mixstyle_layers)
     elif net == 'unet':
-        net = Unet(input_nc=input_nc, output_nc=output_nc, base_ch=32)
+        net = Unet(input_nc=input_nc, output_nc=output_nc, base_ch=32, mixstyle_layers=mixstyle_layers)
     else:
         net = Unet(input_nc=input_nc, output_nc=output_nc, base_ch=32)
         # raise NotImplementedError('model name [%s] is not recoginized'%net)
@@ -248,9 +248,9 @@ class sub_encoder(nn.Module):
         self.enc2 = enc_block(base_ch, base_ch*2)
         self.enc3 = enc_block(base_ch*2, base_ch*4)
         self.enc4 = enc_block(base_ch*4, base_ch*8)
-        # if mixstyle_layers != None:
-        #     self.mixstyle = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha, mix='random')
-        #     print('Insert MixStyle after the following layers: {}'.format(mixstyle_layers))
+        if mixstyle_layers != None:
+            self.mixstyle = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha, mix='random')
+            print('Insert MixStyle after the following layers: {}'.format(mixstyle_layers))
         self.mixstyle_layers = mixstyle_layers
 
     def forward(self, x, nodes_style):
@@ -430,17 +430,16 @@ class Unet(nn.Module):
         self.base_ch = base_ch
         self.cls_num = cls_num
         self.san_lsit = san_lsit
+        # print('---------------------------------mixstyle_layers:',mixstyle_layers)
         self.sub_encoders = sub_encoder(in_ch, base_ch, mixstyle_layers, mixstyle_p, mixstyle_alpha)
         self.global_decoder = sub_decoder(base_ch, cls_num, selected_classes,self.san_lsit)
 
     def forward(self, x, nodes_style=None, node_encoders=False):
-        # if self.training:
-        #     self.sub_encoders.mixstyle.apply(activate_mixstyle)
-        # else:
-        #     self.sub_encoders.mixstyle.apply(deactivate_mixstyle)
+        if self.training:
+            self.sub_encoders.mixstyle.apply(activate_mixstyle)
+        else:
+            self.sub_encoders.mixstyle.apply(deactivate_mixstyle)
         e, e1, e2, e3, e4 = self.sub_encoders(x, nodes_style)
-        # print(e.shape, e1.shape, e2.shape, e3.shape, e4.shape)
-        # exit()
         [output, y4, y3, y2, y1],[x_1_ori,x_2_ori,x_3_ori,x_4_ori],[san1,san2,san3,san4],[saw_loss_lay1,saw_loss_lay2,saw_loss_lay3,saw_loss_lay4] = self.global_decoder(e, e1, e2, e3, e4)
         # if node_encoders:
         #     return output, e, e1, e2, e3, e4
@@ -450,7 +449,7 @@ class Unet(nn.Module):
         if len(self.san_lsit) == 0:
             return output
         else:
-            return output,[x_1_ori,x_2_ori,x_3_ori,x_4_ori],[san1,san2,san3,san4],[saw_loss_lay1,saw_loss_lay2,saw_loss_lay3,saw_loss_lay4]
+            return output,[x_1_ori,x_2_ori,x_3_ori,x_4_ori],[san1,san2,san3,san4],[saw_loss_lay1,saw_loss_lay2,saw_loss_lay3,saw_loss_lay4],[y4, y3, y2, y1]
 
     def forward_SAN_SAW(self,x, nodes_style=None, node_encoders=False):
         # if self.training:
