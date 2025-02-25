@@ -23,7 +23,8 @@ class BaseOptions():
         parser.add_argument('--init_type', type=str, default='xavier_uniform', help='network initialization [normal|xavier|kaiming|orthogonal]')
         parser.add_argument('--init_gain', type=float, default=1.0, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix')
-        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')   
+        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')
+        parser.add_argument('--saved_epoch', type=int, default=5, help='models are saved here')
         parser.add_argument('--log_dir', default='fedst.log', type=str, help='customized suffix: opt.name = opt.name + suffix')
 
         parser.add_argument('--epochs', type=int, default=1, metavar='EP',help='how many epochs will be trained locally')

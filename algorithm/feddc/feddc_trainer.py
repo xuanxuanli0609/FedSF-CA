@@ -155,9 +155,10 @@ class FedDcTrainer(object):
                                self.opt_train.dataroot + '/' + save_path + '/model' + str(round_idx) + '_folds' + str(
                                    fold_idx) + '_best.pkl')
                     min_loss = loss_avg_t
-                torch.save(w_global,
-                           self.opt_train.dataroot + '/' + save_path + '/model' + str(round_idx) + '_folds' + str(
-                               fold_idx) + '.pkl')
+                if round_idx % self.opt_train.saved_epoch == 0:
+                    torch.save(w_global,
+                               self.opt_train.dataroot + '/' + save_path + '/model' + str(round_idx) + '_folds' + str(
+                                   fold_idx) + '.pkl')
 
                 # Update training curve for each round
                 plt.figure()

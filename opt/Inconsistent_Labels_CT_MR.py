@@ -24,7 +24,8 @@ class BaseOptions():
         parser.add_argument('--init_gain', type=float, default=1.0, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--bace_ch', type=int, default=32, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix')
-        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')   
+        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')
+        parser.add_argument('--saved_epoch', type=int, default=5, help='models are saved here')
         parser.add_argument('--log_dir', default='fedst.log', type=str, help='customized suffix: opt.name = opt.name + suffix')
 
         parser.add_argument('--epochs', type=int, default=1, metavar='EP',help='how many epochs will be trained locally')
@@ -45,10 +46,11 @@ class BaseOptions():
 
         parser.add_argument('--dataset_mode', type=str, default='aligned', help='chooses how datasets are loaded. [aligned,gan]')
 
-        parser.add_argument('--batch_size',type=int,default = 32, help='input batch size')
+        parser.add_argument('--batch_size',type=int,default = 12, help='input batch size')
         parser.add_argument('--input_nc',type=int,default = 3, help='input image channels')
         parser.add_argument('--output_nc',type=int,default= 3, help='output classes')
-        
+        # parser.add_argument('--san_list', type=list, default=[0, 1, 2, 3], help='is use SAN-SAW model')
+
         #loss
         parser.add_argument('--loss_type', choices=['CrossEntropyLoss', 'BCW', 'Focal', 'Inconsistent_Labels_loss'], default='Inconsistent_Labels_loss', help='loss types')
         #[0.0013, 0.0363, 0.3248, 0.3188, 0.3188]
@@ -83,6 +85,7 @@ class BaseOptions():
         parser.add_argument('--no_lsgan', action='store_true', help='do *not* use least square GAN, if false, use vanilla GAN')
         parser.add_argument('--pool_size', type=int, default=0, help='the size of image buffer that stores previously generated images')
         parser.add_argument('--dyn_alpha', type=int, default=0.0001, help='Feddyn optimize param alpha')
+        parser.add_argument('--mixstyle_layers', type=bool, default=[], help='is use SAN-SAW model')
         self.initialized = True
         return parser
     
@@ -177,6 +180,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_gamma', type=float, default=0.927, help='multiply by a gamma every lr_decay_iters iterations')
         parser.add_argument('--use_san_saw', type=bool, default=False, help='is use SAN-SAW model')
         parser.add_argument('--san_list', type=list, default=[0,1], help='is use SAN-SAW model')
+
         self.isTrain=True
         return parser
 

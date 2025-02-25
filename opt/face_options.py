@@ -18,12 +18,13 @@ class BaseOptions():
         parser.add_argument('--gpu_ids',type=str,default='0,1,2',help='gpu ids:e.g.0 0,1,2 1,2 use -1 for CPU')
         parser.add_argument('--name', type=str, default = 'face' , required=False, help='name of the experiment.')
         parser.add_argument('--model',type=str,default='unet',choices=['unet','fedst', 'fedst_ddpm'],help='chooses which model to use,unet...')
-        parser.add_argument('--federated_algorithm',type=str,default='fedavg',choices=['fedavg', 'fedprox', 'feddyn', 'feddc', 'fedddpm'],help='chooses which federated learning algrithom to use')
+        parser.add_argument('--federated_algorithm',type=str,default='fedavg',choices=['fedavg', 'fedprox', 'feddyn', 'feddc', 'fedddpm','style_transfer'],help='chooses which federated learning algrithom to use')
         parser.add_argument('--net',type=str,default='unet',choices=['unet'],help='chooses which network to use,unet...')
         parser.add_argument('--init_type', type=str, default='xavier_uniform', help='network initialization [normal|xavier|kaiming|orthogonal]')
         parser.add_argument('--init_gain', type=float, default=1.0, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix')
-        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')   
+        parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')
+        parser.add_argument('--saved_epoch', type=int, default=5, help='models are saved here')
         parser.add_argument('--log_dir', default='fedst.log', type=str, help='customized suffix: opt.name = opt.name + suffix')
 
         parser.add_argument('--epochs', type=int, default=1, metavar='EP',help='how many epochs will be trained locally')
@@ -176,6 +177,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--val_img_list', type=str, help='val images name list')
         parser.add_argument('--lr', type=float, default=1e-4, help='initial lr')
         parser.add_argument('--lr_gamma', type=float, default=0.927, help='multiply by a gamma every lr_decay_iters iterations')
+        parser.add_argument('--mixstyle_layers', type=list, default=[], help='is use SAN-SAW model')
         self.isTrain=True
         return parser
 

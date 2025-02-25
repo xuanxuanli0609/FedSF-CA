@@ -25,6 +25,7 @@ class BaseOptions():
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix')
         parser.add_argument('--checkpoints_dir',type=str,default='./model_checkpoints',help='models are saved here')   
         parser.add_argument('--log_dir', default='fedst.log', type=str, help='customized suffix: opt.name = opt.name + suffix')
+        parser.add_argument('--saved_epoch', type=int, default=5, help='models are saved here')
 
         parser.add_argument('--epochs', type=int, default=1, metavar='EP',help='how many epochs will be trained locally')
         parser.add_argument('--client_num_in_total', type=int, default=79, metavar='NN',help='number of workers in a distributed cluster')
