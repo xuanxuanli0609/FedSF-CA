@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     #get options
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default='CT_MR',
+    parser.add_argument('--dataset', default='Inconsistent_CT_MR',
                         choices=['material', 'medical', 'medical_material',
                                  'face', 'aaf_face', 'Inconsistent_Labels_face',
                                  'EndoVis2018', 'Inconsistent_EndoVis2018', 'CT_MR', 'Inconsistent_CT_MR'],
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument('--comm_round', type=int, default=200, help='how many round of communications we shoud use')
     parser.add_argument('--epochs', type=int, default=1, help='how many epochs will be trained locally')
     parser.add_argument('--use_san_saw', type=bool, default=True, help='is use SAN-SAW model')
-    parser.add_argument('--mixstyle_layers', type=list, default=[],
+    parser.add_argument('--mixstyle_layers', type=list, default=['layer1'],
                         help='is use SAN-SAW model')
     op = parser.parse_args()
 
